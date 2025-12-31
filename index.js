@@ -1,9 +1,9 @@
-import express from "express";
-import cors from "cors";
-import Anthropic from "@anthropic-ai/sdk";
-import { createClient } from "@supabase/supabase-js";
-import { Expo } from "expo-server-sdk";
-import "dotenv/config";
+import express from 'express';
+import cors from 'cors';
+import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+import { Expo } from 'expo-server-sdk';
+import 'dotenv/config';
 
 const app = express();
 app.use(cors());
@@ -11,10 +11,7 @@ app.use(express.json());
 
 // Initialize clients
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const expo = new Expo();
 
 // System prompt for accountability coach
@@ -129,100 +126,94 @@ Now - talk to them like you actually know them. Take your time. Write what the m
 // Build context from history with timestamps
 function buildContext(messages, schedules) {
   const now = new Date();
-
+  
   // Detailed current time
-  const currentTime = now.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
+  const currentTime = now.toLocaleString('en-IN', { 
+    timeZone: 'Asia/Kolkata',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
   });
-
+  
   // Get time of day context
   const hour = now.getHours();
-  let timeOfDay = "night";
-  if (hour >= 5 && hour < 12) timeOfDay = "morning";
-  else if (hour >= 12 && hour < 17) timeOfDay = "afternoon";
-  else if (hour >= 17 && hour < 21) timeOfDay = "evening";
-
+  let timeOfDay = 'night';
+  if (hour >= 5 && hour < 12) timeOfDay = 'morning';
+  else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+  else if (hour >= 17 && hour < 21) timeOfDay = 'evening';
+  
   let ctx = `\n\n---
 ## TIME CONTEXT
 **Current time:** ${currentTime} (IST)
 **Time of day:** ${timeOfDay}
-**Day:** ${now.toLocaleDateString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-  })}
+**Day:** ${now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long' })}
 
 Use this to contextualize your responses (e.g., "It's late, why are you still up?" or "Good morning!" or "How was your day?")
 ---`;
-
+  
   if (schedules?.length) {
-    ctx += "\n\n## THEIR ACTIVE REMINDERS\n";
-    schedules.forEach((s) => {
-      const reminderTime = `${s.hour}:${String(s.minute).padStart(2, "0")}`;
-      ctx += `- **${s.title}** at ${reminderTime} on ${s.days.join(", ")}\n`;
+    ctx += '\n\n## THEIR ACTIVE REMINDERS\n';
+    schedules.forEach(s => {
+      const reminderTime = `${s.hour}:${String(s.minute).padStart(2, '0')}`;
+      ctx += `- **${s.title}** at ${reminderTime} on ${s.days.join(', ')}\n`;
     });
-    ctx +=
-      "\n(You can reference these - ask if they did them, how it went, etc.)";
+    ctx += '\n(You can reference these - ask if they did them, how it went, etc.)';
   }
-
+  
   if (messages?.length) {
-    ctx += "\n\n## CONVERSATION HISTORY\n";
-    ctx += "*Messages are labeled with timestamps. Use these to:*\n";
-    ctx +=
-      '- *Reference specific moments ("yesterday morning you said...", "3 days ago you promised...")*\n';
-    ctx +=
-      '- *Notice patterns ("you always message late at night", "you disappeared for 2 days")*\n';
-    ctx += "- *Track time between check-ins*\n\n";
-
-    let lastDate = "";
-    messages.forEach((m) => {
+    ctx += '\n\n## CONVERSATION HISTORY\n';
+    ctx += '*Messages are labeled with timestamps. Use these to:*\n';
+    ctx += '- *Reference specific moments ("yesterday morning you said...", "3 days ago you promised...")*\n';
+    ctx += '- *Notice patterns ("you always message late at night", "you disappeared for 2 days")*\n';
+    ctx += '- *Track time between check-ins*\n\n';
+    
+    let lastDate = '';
+    messages.forEach(m => {
       const msgDate = new Date(m.created_at);
-
+      
       // Calculate relative time
       const diffMs = now - msgDate;
       const diffMins = Math.floor(diffMs / (1000 * 60));
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      let relativeTime = "";
-      if (diffMins < 5) relativeTime = "just now";
+      
+      let relativeTime = '';
+      if (diffMins < 5) relativeTime = 'just now';
       else if (diffMins < 60) relativeTime = `${diffMins} minutes ago`;
       else if (diffHours < 24) relativeTime = `${diffHours} hours ago`;
-      else if (diffDays === 1) relativeTime = "yesterday";
+      else if (diffDays === 1) relativeTime = 'yesterday';
       else if (diffDays < 7) relativeTime = `${diffDays} days ago`;
       else relativeTime = `${Math.floor(diffDays / 7)} weeks ago`;
-
-      const dateStr = msgDate.toLocaleDateString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
+      
+      const dateStr = msgDate.toLocaleDateString('en-IN', { 
+        timeZone: 'Asia/Kolkata',
+        weekday: 'long', 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
       });
-      const timeStr = msgDate.toLocaleTimeString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
+      const timeStr = msgDate.toLocaleTimeString('en-IN', { 
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
       });
-
+      
       // Add date header if it's a new day
       if (dateStr !== lastDate) {
         ctx += `\n### 📅 ${dateStr}\n`;
         lastDate = dateStr;
       }
-
-      const role = m.role === "user" ? "**THEM**" : "**YOU**";
+      
+      const role = m.role === 'user' ? '**THEM**' : '**YOU**';
       ctx += `[${timeStr} - ${relativeTime}] ${role}:\n${m.content}\n\n`;
     });
   }
-
+  
   // Calculate and add gap analysis
   if (messages?.length) {
     const lastMsg = messages[messages.length - 1];
@@ -230,8 +221,8 @@ Use this to contextualize your responses (e.g., "It's late, why are you still up
     const timeDiff = now - lastMsgTime;
     const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
     const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-    ctx += "\n---\n## TIME SINCE LAST MESSAGE\n";
+    
+    ctx += '\n---\n## TIME SINCE LAST MESSAGE\n';
     if (daysDiff > 0) {
       ctx += `⚠️ **${daysDiff} day(s)** since they last messaged. `;
       if (daysDiff >= 3) {
@@ -247,32 +238,30 @@ Use this to contextualize your responses (e.g., "It's late, why are you still up
     } else {
       ctx += `They just messaged recently - this is an active conversation.`;
     }
-    ctx += "\n---";
+    ctx += '\n---';
   }
-
+  
   return ctx;
 }
 
 // Send push notification
 async function sendPushNotification(pushToken, title, body, data = {}) {
   if (!Expo.isExpoPushToken(pushToken)) {
-    console.log("Invalid push token:", pushToken);
+    console.log('Invalid push token:', pushToken);
     return false;
   }
-
+  
   try {
-    await expo.sendPushNotificationsAsync([
-      {
-        to: pushToken,
-        sound: "default",
-        title,
-        body,
-        data,
-      },
-    ]);
+    await expo.sendPushNotificationsAsync([{
+      to: pushToken,
+      sound: 'default',
+      title,
+      body,
+      data
+    }]);
     return true;
   } catch (error) {
-    console.error("Push notification error:", error);
+    console.error('Push notification error:', error);
     return false;
   }
 }
@@ -280,51 +269,42 @@ async function sendPushNotification(pushToken, title, body, data = {}) {
 // ============ API ROUTES ============
 
 // Health check
-app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Chat with Claude
-app.post("/api/chat", async (req, res) => {
+app.post('/api/chat', async (req, res) => {
   try {
-    const { userId, message, maxTokens } = req.body;
-    const tokens = Math.min(Math.max(parseInt(maxTokens) || 4096, 256), 16384);
+    const { userId, message, maxTokens = 4096 } = req.body;
     if (!userId || !message) {
-      return res.status(400).json({ error: "userId and message required" });
+      return res.status(400).json({ error: 'userId and message required' });
     }
+    
+    // Clamp maxTokens to valid range
+    const tokens = Math.min(Math.max(parseInt(maxTokens) || 4096, 256), 16384);
 
     // Save user message
-    await supabase
-      .from("messages")
-      .insert({ user_id: userId, role: "user", content: message });
-
+    await supabase.from('messages').insert({ user_id: userId, role: 'user', content: message });
+    
     // Update activity
-    await supabase.from("user_activity").upsert({
-      user_id: userId,
-      last_active_at: new Date().toISOString(),
+    await supabase.from('user_activity').upsert({ 
+      user_id: userId, 
+      last_active_at: new Date().toISOString() 
     });
 
     // Fetch history & schedules
     const [{ data: history }, { data: schedules }] = await Promise.all([
-      supabase
-        .from("messages")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at")
-        .limit(100),
-      supabase
-        .from("schedules")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("is_active", true),
+      supabase.from('messages').select('*').eq('user_id', userId).order('created_at').limit(100),
+      supabase.from('schedules').select('*').eq('user_id', userId).eq('is_active', true)
     ]);
 
     const context = buildContext(history?.slice(0, -1) || [], schedules || []);
-    
+
     // Call Claude
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: tokens,
       system: SYSTEM_PROMPT + context,
-      messages: [{ role: "user", content: message }],
+      messages: [{ role: 'user', content: message }]
     });
 
     const aiResponse = response.content[0].text;
@@ -336,131 +316,121 @@ app.post("/api/chat", async (req, res) => {
       try {
         schedule = JSON.parse(match[1]);
       } catch (e) {
-        console.error("Failed to parse schedule:", e);
+        console.error('Failed to parse schedule:', e);
       }
     }
 
     // Save assistant message (clean version)
-    const cleanMessage = aiResponse
-      .replace(/```schedule\n[\s\S]*?\n```/, "")
-      .trim();
-    await supabase
-      .from("messages")
-      .insert({ user_id: userId, role: "assistant", content: cleanMessage });
+    const cleanMessage = aiResponse.replace(/```schedule\n[\s\S]*?\n```/, '').trim();
+    await supabase.from('messages').insert({ user_id: userId, role: 'assistant', content: cleanMessage });
 
     res.json({ message: cleanMessage, schedule });
+
   } catch (error) {
-    console.error("Chat error:", error);
-    res.status(500).json({ error: "Chat failed" });
+    console.error('Chat error:', error);
+    res.status(500).json({ error: 'Chat failed' });
   }
 });
 
 // Get chat history
-app.get("/api/messages/:userId", async (req, res) => {
+app.get('/api/messages/:userId', async (req, res) => {
   try {
     const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("user_id", req.params.userId)
-      .order("created_at")
+      .from('messages')
+      .select('*')
+      .eq('user_id', req.params.userId)
+      .order('created_at')
       .limit(100);
-
+    
     res.json({ messages: data || [] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch messages" });
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
 // Save schedule
-app.post("/api/schedules", async (req, res) => {
+app.post('/api/schedules', async (req, res) => {
   try {
     const { userId, title, description, hour, minute, days } = req.body;
-
-    const { data, error } = await supabase
-      .from("schedules")
-      .insert({
-        user_id: userId,
-        title,
-        description,
-        hour,
-        minute: minute || 0,
-        days: days || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-      })
-      .select()
-      .single();
+    
+    const { data, error } = await supabase.from('schedules').insert({
+      user_id: userId,
+      title,
+      description,
+      hour,
+      minute: minute || 0,
+      days: days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    }).select().single();
 
     if (error) throw error;
     res.json({ schedule: data });
   } catch (error) {
-    console.error("Schedule error:", error);
-    res.status(500).json({ error: "Failed to save schedule" });
+    console.error('Schedule error:', error);
+    res.status(500).json({ error: 'Failed to save schedule' });
   }
 });
 
 // Get schedules
-app.get("/api/schedules/:userId", async (req, res) => {
+app.get('/api/schedules/:userId', async (req, res) => {
   try {
     const { data } = await supabase
-      .from("schedules")
-      .select("*")
-      .eq("user_id", req.params.userId)
-      .eq("is_active", true)
-      .order("hour");
-
+      .from('schedules')
+      .select('*')
+      .eq('user_id', req.params.userId)
+      .eq('is_active', true)
+      .order('hour');
+    
     res.json({ schedules: data || [] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch schedules" });
+    res.status(500).json({ error: 'Failed to fetch schedules' });
   }
 });
 
 // Delete schedule
-app.delete("/api/schedules/:id", async (req, res) => {
+app.delete('/api/schedules/:id', async (req, res) => {
   try {
-    await supabase
-      .from("schedules")
-      .update({ is_active: false })
-      .eq("id", req.params.id);
+    await supabase.from('schedules').update({ is_active: false }).eq('id', req.params.id);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete schedule" });
+    res.status(500).json({ error: 'Failed to delete schedule' });
   }
 });
 
 // Save push token
-app.post("/api/push-token", async (req, res) => {
+app.post('/api/push-token', async (req, res) => {
   try {
     const { userId, token } = req.body;
-    await supabase
-      .from("user_profiles")
-      .upsert({ id: userId, expo_push_token: token });
+    await supabase.from('user_profiles').upsert({ id: userId, expo_push_token: token });
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to save token" });
+    res.status(500).json({ error: 'Failed to save token' });
   }
 });
 
 // ============ CRON ENDPOINT (hit this every hour) ============
-app.post("/api/cron/notifications", async (req, res) => {
+app.post('/api/cron/notifications', async (req, res) => {
   try {
+    // Convert to IST (UTC+5:30)
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    const currentDay = dayMap[now.getDay()];
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istTime = new Date(now.getTime() + istOffset);
+    
+    const currentHour = istTime.getUTCHours();
+    const currentMinute = istTime.getUTCMinutes();
+    const dayMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const currentDay = dayMap[istTime.getUTCDay()];
 
-    console.log(
-      `Running notifications cron: ${currentHour}:${currentMinute} on ${currentDay}`
-    );
+    console.log(`Running notifications cron: ${currentHour}:${currentMinute} on ${currentDay} (IST)`);
 
     // 1. Send scheduled reminders
     const { data: schedules } = await supabase
-      .from("schedules")
-      .select("*, user_profiles!inner(expo_push_token)")
-      .eq("is_active", true)
-      .eq("hour", currentHour)
-      .gte("minute", currentMinute - 5)
-      .lte("minute", currentMinute + 5)
-      .contains("days", [currentDay]);
+      .from('schedules')
+      .select('*, user_profiles!inner(expo_push_token)')
+      .eq('is_active', true)
+      .eq('hour', currentHour)
+      .gte('minute', currentMinute - 5)
+      .lte('minute', currentMinute + 5)
+      .contains('days', [currentDay]);
 
     for (const schedule of schedules || []) {
       const token = schedule.user_profiles?.expo_push_token;
@@ -469,22 +439,20 @@ app.post("/api/cron/notifications", async (req, res) => {
           token,
           `⏰ ${schedule.title}`,
           schedule.description || "Time for your scheduled activity!",
-          { type: "schedule", scheduleId: schedule.id }
+          { type: 'schedule', scheduleId: schedule.id }
         );
         console.log(`Sent schedule notification for: ${schedule.title}`);
       }
     }
 
-    // 2. Send proactive check-ins (users inactive for 3+ hours, between 9am-9pm)
+    // 2. Send proactive check-ins (users inactive for 3+ hours, between 9am-9pm IST)
     if (currentHour >= 9 && currentHour <= 21) {
-      const threeHoursAgo = new Date(
-        now.getTime() - 3 * 60 * 60 * 1000
-      ).toISOString();
-
+      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString();
+      
       const { data: inactiveUsers } = await supabase
-        .from("user_activity")
-        .select("user_id, user_profiles!inner(expo_push_token)")
-        .lt("last_active_at", threeHoursAgo)
+        .from('user_activity')
+        .select('user_id, user_profiles!inner(expo_push_token)')
+        .lt('last_active_at', threeHoursAgo)
         .or(`last_checkin_at.is.null,last_checkin_at.lt.${threeHoursAgo}`);
 
       for (const user of inactiveUsers || []) {
@@ -492,51 +460,45 @@ app.post("/api/cron/notifications", async (req, res) => {
         if (token) {
           // Generate personalized check-in with Claude
           const { data: history } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("user_id", user.user_id)
-            .order("created_at", { ascending: false })
+            .from('messages')
+            .select('*')
+            .eq('user_id', user.user_id)
+            .order('created_at', { ascending: false })
             .limit(20);
 
           if (history?.length) {
             const context = buildContext(history.reverse(), []);
-
+            
             const response = await anthropic.messages.create({
-              model: "claude-sonnet-4-5-20250929",
+              model: 'claude-sonnet-4-5-20250929',
               max_tokens: 150,
               system: SYSTEM_PROMPT + context,
-              messages: [
-                {
-                  role: "user",
-                  content:
-                    "[Generate a short, friendly check-in message (1-2 sentences) based on our past conversations. Be specific, not generic.]",
-                },
-              ],
+              messages: [{ 
+                role: 'user', 
+                content: '[Generate a short, friendly check-in message (1-2 sentences) based on our past conversations. Be specific, not generic.]' 
+              }]
             });
 
             const checkinMessage = response.content[0].text;
 
             await sendPushNotification(
               token,
-              "👋 Quick check-in",
+              '👋 Quick check-in',
               checkinMessage,
-              { type: "checkin" }
+              { type: 'checkin' }
             );
 
             // Save as assistant message
-            await supabase.from("messages").insert({
+            await supabase.from('messages').insert({
               user_id: user.user_id,
-              role: "assistant",
-              content: checkinMessage,
+              role: 'assistant',
+              content: checkinMessage
             });
 
             // Update last checkin time
-            await supabase
-              .from("user_activity")
-              .update({
-                last_checkin_at: now.toISOString(),
-              })
-              .eq("user_id", user.user_id);
+            await supabase.from('user_activity').update({
+              last_checkin_at: now.toISOString()
+            }).eq('user_id', user.user_id);
 
             console.log(`Sent proactive check-in to user: ${user.user_id}`);
           }
@@ -546,8 +508,8 @@ app.post("/api/cron/notifications", async (req, res) => {
 
     res.json({ success: true, timestamp: now.toISOString() });
   } catch (error) {
-    console.error("Cron error:", error);
-    res.status(500).json({ error: "Cron failed" });
+    console.error('Cron error:', error);
+    res.status(500).json({ error: 'Cron failed' });
   }
 });
 
