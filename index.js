@@ -445,8 +445,8 @@ app.post('/api/cron/notifications', async (req, res) => {
       }
     }
 
-    // 2. Send proactive check-ins (users inactive for 3+ hours, between 9am-9pm IST)
-    if (currentHour >= 9 && currentHour <= 21) {
+    // 2. Send proactive check-ins (users inactive for 3+ hours, between 5am-11pm IST)
+    if (currentHour >= 5 && currentHour <= 23) {
       const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString();
       
       const { data: inactiveUsers } = await supabase
