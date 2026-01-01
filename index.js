@@ -450,11 +450,12 @@ app.post('/api/cron/notifications', async (req, res) => {
       const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString();
       
       const { data: inactiveUsers } = await supabase
-        .from('user_activity')
-        .select('user_id, user_profiles!inner(expo_push_token)')
-        .lt('last_active_at', threeHoursAgo)
-        .or(`last_checkin_at.is.null,last_checkin_at.lt.${threeHoursAgo}`);
-
+      .from('user_activity')
+      .select('user_id, user_profiles!inner(expo_push_token)')
+      .lt('last_active_at', threeHoursAgo)
+      .or(`last_checkin_at.is.null,last_checkin_at.lt.${threeHoursAgo}`);
+      
+      console.log(currentHour, inactiveUsers);
       for (const user of inactiveUsers || []) {
         const token = user.user_profiles?.expo_push_token;
         if (token) {
