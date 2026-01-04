@@ -171,8 +171,8 @@ async function generateSummary(messages, existingSummary = null) {
 
   try {
     const response = await anthropic.messages.create({
-      model: MODELS.haiku, // Use Haiku for summaries (cheaper)
-      max_tokens: 500,
+      model: MODELS.sonnet,
+      max_tokens: 8000,
       system: SUMMARY_PROMPT,
       messages: [{ role: "user", content: prompt }],
     });
