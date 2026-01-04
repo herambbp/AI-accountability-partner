@@ -51,55 +51,27 @@ You have access to the current time and timestamps of all messages. **Use this a
 
 **Track commitments over time:**
 - "You set that reminder 5 days ago. How's it been going?"
-- "It's been 2 weeks since you started. Let's look at the pattern..."
 
-## How you write and format responses:
+## How to be with them:
 
-**Write thoughtfully and thoroughly.** Don't rush. Don't truncate your thoughts. If something deserves exploration, explore it fully. Your responses should feel like a real person taking the time to really think about what they said and respond meaningfully.
+**Your vibe:**
+- Direct but warm. Cut through their BS while making them feel supported
+- Use their name sometimes. Notice patterns. Remember details
+- Match their energy - if they're excited, be excited with them. If they're struggling, slow down
+- Be specific. "You said X" hits different than "you mentioned something about..."
 
-**Use rich formatting to make your responses clear and readable:**
-- Use **bold** for emphasis on important points
-- Use *italics* for softer emphasis or when referencing their words
-- Use bullet points when listing multiple things
-- Use numbered lists for steps or sequences
-- Use > blockquotes when referencing something they said before
-- Use ### headings to organize longer responses into sections
-- Use --- horizontal rules to separate distinct thoughts
-- Use \`code formatting\` for specific terms or when being precise
+**Call out patterns:**
+- "This is the third time you've pushed this back..."
+- "I notice every time we talk about X, you change the subject..."
+- "You keep saying 'I'll try' instead of 'I will'..."
 
-**Structure longer responses well:**
-- Start with the emotional/relational response (acknowledge what they said)
-- Then go deeper into analysis or observations
-- Then offer perspective or reframe
-- Then ask questions or give actionable direction
-- End with something that lands - a question, a challenge, an affirmation
+**Push them with love:**
+- "I believe you can do this, AND I think you're hiding from something. What's really going on?"
+- "That excuse might work on other people. But I know you. What's the real reason?"
+- "You're capable of so much more than this. What would it take to actually show up for yourself?"
 
-**Length guidance:**
-- Simple check-in? 2-4 sentences is fine.
-- They shared something real? Take your time. 3-5 paragraphs minimum.
-- They're struggling or need a real conversation? Write as much as the moment needs. Don't artificially cut yourself off.
-- When in doubt, err on the side of MORE depth, not less.
-
-## Your personality and approach:
-
-**Be genuinely curious.** Ask follow-up questions. Wonder out loud about patterns. "I'm curious about something..." or "Can I ask you something?" opens up real conversation.
-
-**Be specific, not generic.** Reference actual things from the conversation history. "Last Tuesday you said X" or "Remember when you told me about Y?" shows you're paying attention.
-
-**Hold tension well.** You can be warm AND demanding. Supportive AND challenging. Believe in them AND call out their bullshit. These aren't contradictions.
-
-**What you notice and track:**
-- Patterns in their excuses (what keeps coming up?)
-- Patterns in their energy (when do they show up vs avoid?)
-- Gaps between what they say and what they do
-- The stories they tell themselves ("I'm lazy" "I can't be consistent" "I always fail")
-- Progress they can't see themselves
-
-**What you believe:**
-- They're capable of way more than they think
-- Comfort is where dreams go to die  
-- Breaking promises to yourself destroys self-trust
-- Feelings are valid AND they still have to do the thing
+**Ground them in action:**
+- Don't let them spiral. Bring it back to: "Okay, so what's ONE thing you'll do today?"
 - The goal isn't to feel motivated, it's to build identity through action
 
 **When they're struggling:** Don't immediately problem-solve. Sit with them first. "That sounds really hard. Tell me more about what's going on." THEN move to action.
@@ -126,11 +98,123 @@ When they want to set a reminder (like "remind me to exercise at 7am"), respond 
 
 Now - talk to them like you actually know them. Take your time. Write what the moment deserves.`;
 
-// Build context from history with timestamps
-function buildContext(messages, schedules) {
+// Summary generation prompt
+const SUMMARY_PROMPT = `You are summarizing a conversation between a user and their accountability coach.
+
+Extract and summarize ONLY the important information:
+- User's goals and commitments
+- Progress made or setbacks
+- Key decisions or promises
+- Important personal details mentioned
+- Patterns noticed (good or bad habits)
+- Emotional states or struggles mentioned
+
+DO NOT include:
+- Greetings, pleasantries, filler words
+- Repeated information already known
+- Generic motivational exchanges
+- Small talk
+
+Write a concise paragraph (max 200 words) that captures everything the coach needs to know to continue helping this person effectively. Write in third person (e.g., "User wants to...", "They committed to...").
+
+If there's an existing summary, merge the new information with it, removing any duplicates.`;
+
+// ============ SUMMARY FUNCTIONS ============
+
+// Generate summary from messages
+async function generateSummary(messages, existingSummary = null) {
+  if (!messages || messages.length === 0) return existingSummary;
+
+  let prompt = "Summarize this conversation:\n\n";
+
+  if (existingSummary) {
+    prompt = `Existing summary:\n${existingSummary}\n\nNew messages to incorporate:\n\n`;
+  }
+
+  messages.forEach((m) => {
+    const role = m.role === "user" ? "User" : "Coach";
+    prompt += `${role}: ${m.content}\n\n`;
+  });
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 500,
+      system: SUMMARY_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    return response.content[0].text;
+  } catch (error) {
+    console.error("Summary generation error:", error);
+    return existingSummary; // Return existing if generation fails
+  }
+}
+
+// Update user's conversation summary
+async function updateUserSummary(userId) {
+  try {
+    // Get user profile with current summary info
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("conversation_summary, messages_summarized")
+      .eq("id", userId)
+      .single();
+
+    const messagesSummarized = profile?.messages_summarized || 0;
+    const existingSummary = profile?.conversation_summary || null;
+
+    // Get messages that haven't been summarized yet (older than last 10)
+    const { data: allMessages } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (!allMessages || allMessages.length <= 10) {
+      return; // Not enough messages to summarize
+    }
+
+    // Messages to summarize: everything except last 10
+    const messagesToSummarize = allMessages.slice(0, -10);
+
+    // Only summarize if we have new messages to add
+    if (messagesToSummarize.length <= messagesSummarized) {
+      return; // No new messages to summarize
+    }
+
+    // Get only the NEW messages that need summarizing
+    const newMessages = messagesToSummarize.slice(messagesSummarized);
+
+    console.log(
+      `Summarizing ${newMessages.length} new messages for user ${userId}`
+    );
+
+    // Generate updated summary
+    const newSummary = await generateSummary(newMessages, existingSummary);
+
+    // Update profile with new summary
+    await supabase
+      .from("user_profiles")
+      .update({
+        conversation_summary: newSummary,
+        messages_summarized: messagesToSummarize.length,
+        summary_updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    console.log(`Summary updated for user ${userId}`);
+    return newSummary;
+  } catch (error) {
+    console.error("Update summary error:", error);
+  }
+}
+
+// Build context with summary + recent messages
+function buildContextWithSummary(summary, recentMessages, schedules) {
   const now = new Date();
 
-  // Detailed current time
+  // Current time info
   const currentTime = now.toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     weekday: "long",
@@ -142,7 +226,6 @@ function buildContext(messages, schedules) {
     hour12: true,
   });
 
-  // Get time of day context
   const hour = now.getHours();
   let timeOfDay = "night";
   if (hour >= 5 && hour < 12) timeOfDay = "morning";
@@ -153,38 +236,36 @@ function buildContext(messages, schedules) {
 ## TIME CONTEXT
 **Current time:** ${currentTime} (IST)
 **Time of day:** ${timeOfDay}
-**Day:** ${now.toLocaleDateString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-  })}
-
-Use this to contextualize your responses (e.g., "It's late, why are you still up?" or "Good morning!" or "How was your day?")
 ---`;
 
+  // Add summary if exists
+  if (summary) {
+    ctx += `\n\n## CONVERSATION HISTORY SUMMARY
+*This summarizes your earlier conversations with them:*
+
+${summary}
+
+---`;
+  }
+
+  // Add schedules
   if (schedules?.length) {
     ctx += "\n\n## THEIR ACTIVE REMINDERS\n";
     schedules.forEach((s) => {
       const reminderTime = `${s.hour}:${String(s.minute).padStart(2, "0")}`;
       ctx += `- **${s.title}** at ${reminderTime} on ${s.days.join(", ")}\n`;
     });
-    ctx +=
-      "\n(You can reference these - ask if they did them, how it went, etc.)";
   }
 
-  if (messages?.length) {
-    ctx += "\n\n## CONVERSATION HISTORY\n";
-    ctx += "*Messages are labeled with timestamps. Use these to:*\n";
-    ctx +=
-      '- *Reference specific moments ("yesterday morning you said...", "3 days ago you promised...")*\n';
-    ctx +=
-      '- *Notice patterns ("you always message late at night", "you disappeared for 2 days")*\n';
-    ctx += "- *Track time between check-ins*\n\n";
+  // Add recent messages with timestamps
+  if (recentMessages?.length) {
+    ctx += "\n\n## RECENT MESSAGES (Last 10)\n";
+    ctx += "*These are your most recent exchanges:*\n\n";
 
     let lastDate = "";
-    messages.forEach((m) => {
+    recentMessages.forEach((m) => {
       const msgDate = new Date(m.created_at);
 
-      // Calculate relative time
       const diffMs = now - msgDate;
       const diffMins = Math.floor(diffMs / (1000 * 60));
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -195,15 +276,13 @@ Use this to contextualize your responses (e.g., "It's late, why are you still up
       else if (diffMins < 60) relativeTime = `${diffMins} minutes ago`;
       else if (diffHours < 24) relativeTime = `${diffHours} hours ago`;
       else if (diffDays === 1) relativeTime = "yesterday";
-      else if (diffDays < 7) relativeTime = `${diffDays} days ago`;
-      else relativeTime = `${Math.floor(diffDays / 7)} weeks ago`;
+      else relativeTime = `${diffDays} days ago`;
 
       const dateStr = msgDate.toLocaleDateString("en-IN", {
         timeZone: "Asia/Kolkata",
-        weekday: "long",
+        weekday: "short",
         month: "short",
         day: "numeric",
-        year: "numeric",
       });
       const timeStr = msgDate.toLocaleTimeString("en-IN", {
         timeZone: "Asia/Kolkata",
@@ -212,42 +291,14 @@ Use this to contextualize your responses (e.g., "It's late, why are you still up
         hour12: true,
       });
 
-      // Add date header if it's a new day
       if (dateStr !== lastDate) {
-        ctx += `\n### 📅 ${dateStr}\n`;
+        ctx += `\n### ${dateStr}\n`;
         lastDate = dateStr;
       }
 
       const role = m.role === "user" ? "**THEM**" : "**YOU**";
       ctx += `[${timeStr} - ${relativeTime}] ${role}:\n${m.content}\n\n`;
     });
-  }
-
-  // Calculate and add gap analysis
-  if (messages?.length) {
-    const lastMsg = messages[messages.length - 1];
-    const lastMsgTime = new Date(lastMsg.created_at);
-    const timeDiff = now - lastMsgTime;
-    const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
-    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-    ctx += "\n---\n## TIME SINCE LAST MESSAGE\n";
-    if (daysDiff > 0) {
-      ctx += `⚠️ **${daysDiff} day(s)** since they last messaged. `;
-      if (daysDiff >= 3) {
-        ctx += `This is a significant gap - they might be avoiding, struggling, or just busy. Address this directly but with care.`;
-      } else {
-        ctx += `Worth acknowledging - check in on how they've been.`;
-      }
-    } else if (hoursDiff > 6) {
-      ctx += `It's been **${hoursDiff} hours** since they last messaged. `;
-      ctx += `A decent gap - might ask what they've been up to.`;
-    } else if (hoursDiff > 0) {
-      ctx += `It's been **${hoursDiff} hour(s)** since their last message.`;
-    } else {
-      ctx += `They just messaged recently - this is an active conversation.`;
-    }
-    ctx += "\n---";
   }
 
   return ctx;
@@ -287,7 +338,7 @@ async function sendPushNotification(pushToken, title, body, data = {}) {
 // Health check
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-// Chat with Claude
+// Chat with Claude (uses summary + last 10 messages)
 app.post("/api/chat", async (req, res) => {
   try {
     const { userId, message, maxTokens = 4096 } = req.body;
@@ -295,7 +346,6 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "userId and message required" });
     }
 
-    // Clamp maxTokens to valid range
     const tokens = Math.min(Math.max(parseInt(maxTokens) || 4096, 256), 16384);
 
     // Save user message
@@ -309,22 +359,37 @@ app.post("/api/chat", async (req, res) => {
       last_active_at: new Date().toISOString(),
     });
 
-    // Fetch history & schedules
-    const [{ data: history }, { data: schedules }] = await Promise.all([
-      supabase
-        .from("messages")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at")
-        .limit(100),
-      supabase
-        .from("schedules")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("is_active", true),
-    ]);
+    // Get summary and recent messages
+    const [{ data: profile }, { data: recentMessages }, { data: schedules }] =
+      await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("conversation_summary")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("messages")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("schedules")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("is_active", true),
+      ]);
 
-    const context = buildContext(history?.slice(0, -1) || [], schedules || []);
+    // Reverse to get chronological order (oldest first)
+    const messagesForContext = (recentMessages || []).reverse();
+    const summary = profile?.conversation_summary || null;
+
+    // Build context with summary + recent messages
+    const context = buildContextWithSummary(
+      summary,
+      messagesForContext.slice(0, -1),
+      schedules || []
+    );
 
     // Call Claude
     const response = await anthropic.messages.create({
@@ -347,13 +412,18 @@ app.post("/api/chat", async (req, res) => {
       }
     }
 
-    // Save assistant message (clean version)
+    // Save assistant message
     const cleanMessage = aiResponse
       .replace(/```schedule\n[\s\S]*?\n```/, "")
       .trim();
     await supabase
       .from("messages")
       .insert({ user_id: userId, role: "assistant", content: cleanMessage });
+
+    // Update summary in background (don't await)
+    updateUserSummary(userId).catch((err) =>
+      console.error("Background summary update failed:", err)
+    );
 
     res.json({ message: cleanMessage, schedule });
   } catch (error) {
@@ -362,23 +432,91 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// Get chat history
+// Get paginated messages (for infinite scroll)
 app.get("/api/messages/:userId", async (req, res) => {
   try {
-    const { data } = await supabase
+    const { userId } = req.params;
+    const { limit = 10, before } = req.query;
+    const pageLimit = Math.min(parseInt(limit) || 10, 50);
+
+    let query = supabase
       .from("messages")
       .select("*")
-      .eq("user_id", req.params.userId)
-      .order("created_at")
-      .limit(100);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(pageLimit);
 
-    res.json({ messages: data || [] });
+    // If 'before' timestamp provided, get messages before that time
+    if (before) {
+      query = query.lt("created_at", before);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Reverse to chronological order for display
+    const messages = (data || []).reverse();
+
+    // Check if there are more messages
+    const hasMore = data && data.length === pageLimit;
+
+    res.json({
+      messages,
+      hasMore,
+      oldestTimestamp: messages.length > 0 ? messages[0].created_at : null,
+    });
   } catch (error) {
+    console.error("Fetch messages error:", error);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 });
 
-// Save schedule
+// Get total message count
+app.get("/api/messages/:userId/count", async (req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", req.params.userId);
+
+    if (error) throw error;
+    res.json({ count: count || 0 });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to count messages" });
+  }
+});
+
+// Force update summary (manual trigger)
+app.post("/api/summary/:userId/update", async (req, res) => {
+  try {
+    const summary = await updateUserSummary(req.params.userId);
+    res.json({ success: true, summary });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update summary" });
+  }
+});
+
+// Get user's summary
+app.get("/api/summary/:userId", async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from("user_profiles")
+      .select("conversation_summary, messages_summarized, summary_updated_at")
+      .eq("id", req.params.userId)
+      .single();
+
+    res.json({
+      summary: data?.conversation_summary || null,
+      messagesSummarized: data?.messages_summarized || 0,
+      updatedAt: data?.summary_updated_at || null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch summary" });
+  }
+});
+
+// Create schedule
 app.post("/api/schedules", async (req, res) => {
   try {
     const { userId, title, description, hour, minute, days } = req.body;
@@ -390,8 +528,9 @@ app.post("/api/schedules", async (req, res) => {
         title,
         description,
         hour,
-        minute: minute || 0,
-        days: days || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+        minute,
+        days,
+        is_active: true,
       })
       .select()
       .single();
@@ -399,8 +538,7 @@ app.post("/api/schedules", async (req, res) => {
     if (error) throw error;
     res.json({ schedule: data });
   } catch (error) {
-    console.error("Schedule error:", error);
-    res.status(500).json({ error: "Failed to save schedule" });
+    res.status(500).json({ error: "Failed to create schedule" });
   }
 });
 
@@ -411,8 +549,7 @@ app.get("/api/schedules/:userId", async (req, res) => {
       .from("schedules")
       .select("*")
       .eq("user_id", req.params.userId)
-      .eq("is_active", true)
-      .order("hour");
+      .order("created_at", { ascending: false });
 
     res.json({ schedules: data || [] });
   } catch (error) {
@@ -423,13 +560,32 @@ app.get("/api/schedules/:userId", async (req, res) => {
 // Delete schedule
 app.delete("/api/schedules/:id", async (req, res) => {
   try {
-    await supabase
-      .from("schedules")
-      .update({ is_active: false })
-      .eq("id", req.params.id);
+    await supabase.from("schedules").delete().eq("id", req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete schedule" });
+  }
+});
+
+// Toggle schedule
+app.patch("/api/schedules/:id/toggle", async (req, res) => {
+  try {
+    const { data: current } = await supabase
+      .from("schedules")
+      .select("is_active")
+      .eq("id", req.params.id)
+      .single();
+
+    const { data } = await supabase
+      .from("schedules")
+      .update({ is_active: !current?.is_active })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    res.json({ schedule: data });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to toggle schedule" });
   }
 });
 
@@ -444,282 +600,178 @@ app.post("/api/push-token", async (req, res) => {
     const { error } = await supabase.from("user_profiles").upsert({
       id: userId,
       expo_push_token: token,
+      updated_at: new Date().toISOString(),
     });
 
-    if (error) {
-      console.error("Error saving push token:", error);
-      return res
-        .status(500)
-        .json({ error: "Failed to save token", details: error.message });
-    }
-
-    console.log(`Push token saved successfully for user ${userId}`);
+    if (error) throw error;
     res.json({ success: true });
   } catch (error) {
-    console.error("Push token error:", error);
+    console.error("Save push token error:", error);
     res.status(500).json({ error: "Failed to save token" });
   }
 });
 
-// Test endpoint to check user data
+// Debug endpoint
 app.get("/api/debug/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const [profile, activity, messages] = await Promise.all([
-      supabase.from("user_profiles").select("*").eq("id", userId).single(),
-      supabase.from("user_activity").select("*").eq("user_id", userId).single(),
-      supabase.from("messages").select("id").eq("user_id", userId),
-    ]);
+    const [{ data: profile }, { data: activity }, { count: messageCount }] =
+      await Promise.all([
+        supabase.from("user_profiles").select("*").eq("id", userId).single(),
+        supabase
+          .from("user_activity")
+          .select("*")
+          .eq("user_id", userId)
+          .single(),
+        supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId),
+      ]);
 
     res.json({
-      profile: profile.data,
-      activity: activity.data,
-      messageCount: messages.data?.length || 0,
-      hasPushToken: !!profile.data?.expo_push_token,
+      profile,
+      activity,
+      messageCount,
+      hasPushToken: !!profile?.expo_push_token,
+      hasSummary: !!profile?.conversation_summary,
+      messagesSummarized: profile?.messages_summarized || 0,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Manual test check-in
-app.post("/api/test/checkin/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
+// ============ CRON ENDPOINTS ============
 
-    // Get user's push token
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("expo_push_token")
-      .eq("id", userId)
-      .single();
-
-    if (!profile?.expo_push_token) {
-      return res.status(400).json({ error: "No push token found for user" });
-    }
-
-    // Get recent messages for context
-    const { data: history } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (!history?.length) {
-      return res.status(400).json({ error: "No message history for user" });
-    }
-
-    const context = buildContext(history.reverse(), []);
-
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 150,
-      system: SYSTEM_PROMPT + context,
-      messages: [
-        {
-          role: "user",
-          content:
-            "[Generate a short, friendly check-in message (1-2 sentences) based on our past conversations. Be specific, not generic.]",
-        },
-      ],
-    });
-
-    const checkinMessage = response.content[0].text;
-
-    // Send push notification
-    const pushResult = await sendPushNotification(
-      profile.expo_push_token,
-      "👋 Quick check-in",
-      checkinMessage,
-      { type: "checkin" }
-    );
-
-    res.json({
-      success: true,
-      message: checkinMessage,
-      pushResult,
-      token: profile.expo_push_token.substring(0, 30) + "...",
-    });
-  } catch (error) {
-    console.error("Test check-in error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ CRON ENDPOINT (hit this every hour) ============
+// Cron job for notifications
 app.post("/api/cron/notifications", async (req, res) => {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istTime = new Date(now.getTime() + istOffset);
+  const currentHour = istTime.getUTCHours();
+  const currentMinute = istTime.getUTCMinutes();
+  const dayNames = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  const currentDay = dayNames[istTime.getUTCDay()];
+
+  console.log(
+    `Running notifications cron: ${currentHour}:${currentMinute} on ${currentDay} (IST)`
+  );
+
   try {
-    // Convert to IST (UTC+5:30)
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-    const istTime = new Date(now.getTime() + istOffset);
-
-    const currentHour = istTime.getUTCHours();
-    const currentMinute = istTime.getUTCMinutes();
-    const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    const currentDay = dayMap[istTime.getUTCDay()];
-
-    console.log(
-      `Running notifications cron: ${currentHour}:${currentMinute} on ${currentDay} (IST)`
-    );
-
-    // 1. Send scheduled reminders
-    const { data: schedules, error: schedError } = await supabase
+    // Scheduled reminders
+    const { data: schedules } = await supabase
       .from("schedules")
       .select("*")
       .eq("is_active", true)
       .eq("hour", currentHour)
-      .gte("minute", currentMinute - 5)
-      .lte("minute", currentMinute + 5)
-      .contains("days", [currentDay]);
-
-    if (schedError) {
-      console.log("Error fetching schedules:", schedError);
-    }
+      .gte("minute", currentMinute - 2)
+      .lte("minute", currentMinute + 2);
 
     console.log(`Found ${schedules?.length || 0} schedules to notify`);
 
     for (const schedule of schedules || []) {
-      // Get push token separately
+      if (!schedule.days.includes(currentDay)) continue;
+
       const { data: profile } = await supabase
         .from("user_profiles")
         .select("expo_push_token")
         .eq("id", schedule.user_id)
         .single();
 
-      const token = profile?.expo_push_token;
-      if (token) {
+      if (profile?.expo_push_token) {
         await sendPushNotification(
-          token,
+          profile.expo_push_token,
           `⏰ ${schedule.title}`,
-          schedule.description || "Time for your scheduled activity!",
-          { type: "schedule", scheduleId: schedule.id }
+          schedule.description || "Time for your scheduled activity!"
         );
-        console.log(`Sent schedule notification for: ${schedule.title}`);
-      } else {
-        console.log(`No push token for schedule: ${schedule.title}`);
       }
     }
 
-    // 2. Send proactive check-ins (users inactive for 3+ hours, between 9am-9pm IST)
+    // Proactive check-ins (9am-9pm IST only)
     if (currentHour >= 9 && currentHour <= 21) {
       const threeHoursAgo = new Date(
         now.getTime() - 3 * 60 * 60 * 1000
       ).toISOString();
 
-      console.log(
-        `Checking for inactive users (inactive since ${threeHoursAgo})`
-      );
-
-      // Get inactive users
-      const { data: inactiveUsers, error: activityError } = await supabase
+      const { data: inactiveUsers } = await supabase
         .from("user_activity")
         .select("user_id, last_active_at, last_checkin_at")
         .lt("last_active_at", threeHoursAgo);
 
-      if (activityError) {
-        console.log("Error fetching inactive users:", activityError);
-      }
-
       console.log(`Found ${inactiveUsers?.length || 0} inactive users`);
 
       for (const user of inactiveUsers || []) {
-        // Get push token separately
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("expo_push_token")
-          .eq("id", user.user_id)
-          .single();
-
-        const token = profile?.expo_push_token;
-
-        // Skip if no token
-        if (!token) {
-          console.log(`User ${user.user_id}: No push token`);
+        if (
+          user.last_checkin_at &&
+          new Date(user.last_checkin_at) > new Date(threeHoursAgo)
+        ) {
           continue;
         }
 
-        // Check if we already sent a check-in in the last 3 hours
-        if (user.last_checkin_at) {
-          const lastCheckin = new Date(user.last_checkin_at);
-          const threeHoursAgoDate = new Date(
-            now.getTime() - 3 * 60 * 60 * 1000
-          );
-          if (lastCheckin > threeHoursAgoDate) {
-            console.log(`User ${user.user_id}: Already sent check-in recently`);
-            continue;
-          }
-        }
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("expo_push_token, conversation_summary")
+          .eq("id", user.user_id)
+          .single();
 
-        console.log(`Generating check-in for user ${user.user_id}`);
+        if (!profile?.expo_push_token) continue;
 
-        // Generate personalized check-in with Claude
-        const { data: history } = await supabase
+        // Get last few messages for context
+        const { data: recentMessages } = await supabase
           .from("messages")
-          .select("*")
+          .select("role, content")
           .eq("user_id", user.user_id)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(5);
 
-        if (history?.length) {
-          const context = buildContext(history.reverse(), []);
+        const contextInfo =
+          profile.conversation_summary ||
+          recentMessages
+            ?.map((m) => `${m.role}: ${m.content.substring(0, 100)}`)
+            .join("\n") ||
+          "New user";
 
-          const response = await anthropic.messages.create({
-            model: "claude-sonnet-4-5-20250929",
-            max_tokens: 150,
-            system: SYSTEM_PROMPT + context,
-            messages: [
-              {
-                role: "user",
-                content:
-                  "[Generate a short, friendly check-in message (1-2 sentences) based on our past conversations. Be specific, not generic.]",
-              },
-            ],
-          });
+        const checkInPrompt = `Based on this context about the user:\n${contextInfo}\n\nGenerate a short, personalized check-in message (max 100 chars). Be warm but direct. Ask about their progress or how they're doing.`;
 
-          const checkinMessage = response.content[0].text;
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-4-5-20250929",
+          max_tokens: 100,
+          messages: [{ role: "user", content: checkInPrompt }],
+        });
 
-          await sendPushNotification(
-            token,
-            "👋 Quick check-in",
-            checkinMessage,
-            { type: "checkin" }
-          );
+        const checkInMessage = response.content[0].text;
 
-          // Save as assistant message
-          await supabase.from("messages").insert({
-            user_id: user.user_id,
-            role: "assistant",
-            content: checkinMessage,
-          });
+        await sendPushNotification(
+          profile.expo_push_token,
+          "👋 Coach Check-in",
+          checkInMessage
+        );
 
-          // Update last checkin time
-          await supabase
-            .from("user_activity")
-            .update({
-              last_checkin_at: now.toISOString(),
-            })
-            .eq("user_id", user.user_id);
+        await supabase.from("messages").insert({
+          user_id: user.user_id,
+          role: "assistant",
+          content: checkInMessage,
+        });
 
-          console.log(`Sent proactive check-in to user: ${user.user_id}`);
-        } else {
-          console.log(`User ${user.user_id}: No message history`);
-        }
+        await supabase
+          .from("user_activity")
+          .update({
+            last_checkin_at: now.toISOString(),
+          })
+          .eq("user_id", user.user_id);
+
+        console.log(`Sent check-in to user: ${user.user_id}`);
       }
-    } else {
-      console.log(
-        `Outside check-in hours (current: ${currentHour} IST, allowed: 9-21)`
-      );
     }
 
-    res.json({ success: true, timestamp: now.toISOString() });
+    res.json({ success: true });
   } catch (error) {
     console.error("Cron error:", error);
-    res.status(500).json({ error: "Cron failed" });
+    res.status(500).json({ error: error.message });
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
