@@ -149,7 +149,7 @@ DO NOT include:
 - Generic motivational exchanges
 - Small talk
 
-Write a concise paragraph (max 200 words) that captures everything the coach needs to know to continue helping this person effectively. Write in third person (e.g., "User wants to...", "They committed to...").
+Write a concise paragraph (max 500 words) that captures everything the coach needs to know to continue helping this person effectively. Write in third person (e.g., "User wants to...", "They committed to...").
 
 If there's an existing summary, merge the new information with it, removing any duplicates.`;
 
