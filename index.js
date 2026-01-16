@@ -171,7 +171,7 @@ async function generateSummary(messages, existingSummary = null) {
 
   try {
     const response = await anthropic.messages.create({
-      model: MODELS.sonnet,
+      model: MODELS.haiku,
       max_tokens: 8000,
       system: SUMMARY_PROMPT,
       messages: [{ role: "user", content: prompt }],
@@ -411,7 +411,7 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 // Chat with Claude (with model selection + summary support)
 app.post("/api/chat", async (req, res) => {
   try {
-    const { userId, message, maxTokens = 4096, model = "sonnet" } = req.body;
+    const { userId, message, maxTokens = 4096, model = "haiku" } = req.body;
     if (!userId || !message) {
       return res.status(400).json({ error: "userId and message required" });
     }
@@ -420,7 +420,7 @@ app.post("/api/chat", async (req, res) => {
     const tokens = Math.min(Math.max(parseInt(maxTokens) || 4096, 256), 16384);
 
     // Select model
-    const selectedModel = MODELS[model] || MODELS.sonnet;
+    const selectedModel = MODELS[model] || MODELS.haiku;
     console.log(`Chat: model=${model} (${selectedModel}), tokens=${tokens}`);
 
     // Save user message
