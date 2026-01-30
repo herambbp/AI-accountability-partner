@@ -25,17 +25,6 @@ export function cleanScheduleFromMessage(text) {
 }
 
 /**
- * Clamp a number to a valid range
- * @param {number} value - Value to clamp
- * @param {number} min - Minimum value
- * @param {number} max - Maximum value
- * @returns {number} Clamped value
- */
-export function clampNumber(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-}
-
-/**
  * Validate required fields in request body
  * @param {Object} body - Request body
  * @param {string[]} required - Array of required field names

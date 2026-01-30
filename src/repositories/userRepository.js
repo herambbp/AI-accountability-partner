@@ -41,20 +41,6 @@ export const userRepository = {
     },
 
     /**
-     * Update user profile
-     * @param {string} userId - User ID
-     * @param {Object} data - Fields to update
-     */
-    async updateProfile(userId, data) {
-        const { error } = await supabase
-            .from("user_profiles")
-            .update(data)
-            .eq("id", userId);
-
-        if (error) throw error;
-    },
-
-    /**
      * Update conversation summary
      * @param {string} userId - User ID
      * @param {string} summary - New summary text

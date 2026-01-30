@@ -50,18 +50,9 @@ export const aiService = {
      * @returns {Promise<string|null>} Generated summary
      */
     async generateSummary(messages, existingSummary = null) {
-        if (!messages || messages.length === 0) return existingSummary;
+        if (!messages?.length) return existingSummary;
 
-        let prompt = "Summarize this conversation:\n\n";
-
-        if (existingSummary) {
-            prompt = `Existing summary:\n${existingSummary}\n\nNew messages to incorporate:\n\n`;
-        }
-
-        messages.forEach((m) => {
-            const role = m.role === "user" ? "User" : "Coach";
-            prompt += `${role}: ${m.content}\n\n`;
-        });
+        const prompt = buildSummaryPrompt(messages, existingSummary);
 
         try {
             const response = await anthropic.messages.create({
@@ -94,3 +85,19 @@ export const aiService = {
         return response.content[0].text;
     },
 };
+
+/**
+ * Build the prompt for summary generation
+ */
+function buildSummaryPrompt(messages, existingSummary) {
+    const messageLines = messages.map((m) => {
+        const role = m.role === "user" ? "User" : "Coach";
+        return `${role}: ${m.content}`;
+    });
+
+    if (existingSummary) {
+        return `Existing summary:\n${existingSummary}\n\nNew messages to incorporate:\n\n${messageLines.join("\n\n")}`;
+    }
+
+    return `Summarize this conversation:\n\n${messageLines.join("\n\n")}`;
+}

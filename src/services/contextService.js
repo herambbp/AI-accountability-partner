@@ -19,11 +19,23 @@ export const contextService = {
      */
     buildContext(messages, schedules, summary = null) {
         const now = new Date();
-        const formatted = formatDateTime(now);
-        const hour = now.getHours();
-        const timeOfDay = getTimeOfDay(hour);
+        const sections = [
+            buildTimeContext(now),
+            buildSummarySection(summary),
+            buildSchedulesSection(schedules),
+            buildMessagesSection(messages, now),
+            buildTimeGapSection(messages, now),
+        ];
 
-        let context = `\n\n---
+        return sections.filter(Boolean).join("");
+    },
+};
+
+function buildTimeContext(now) {
+    const formatted = formatDateTime(now);
+    const timeOfDay = getTimeOfDay(now.getHours());
+
+    return `\n\n---
 ## TIME CONTEXT
 **Current time:** ${formatted.full} (IST)
 **Time of day:** ${timeOfDay}
@@ -31,75 +43,69 @@ export const contextService = {
 
 Use this to contextualize your responses (e.g., "It's late, why are you still up?" or "Good morning!" or "How was your day?")
 ---`;
+}
 
-        // Add summary section
-        if (summary) {
-            context += `\n\n## CONVERSATION HISTORY SUMMARY
+function buildSummarySection(summary) {
+    if (!summary) return null;
+
+    return `\n\n## CONVERSATION HISTORY SUMMARY
 *This summarizes your earlier conversations with them (older messages):*
 
 ${summary}
 
 ---`;
+}
+
+function buildSchedulesSection(schedules) {
+    if (!schedules?.length) return null;
+
+    const lines = schedules.map((s) => {
+        const reminderTime = formatReminderTime(s.hour, s.minute);
+        return `- **${s.title}** at ${reminderTime} on ${s.days.join(", ")}`;
+    });
+
+    return `\n\n## THEIR ACTIVE REMINDERS
+${lines.join("\n")}
+
+(You can reference these - ask if they did them, how it went, etc.)`;
+}
+
+function buildMessagesSection(messages, now) {
+    if (!messages?.length) return null;
+
+    const parts = [
+        "\n\n## RECENT CONVERSATION HISTORY",
+        "*Messages are labeled with timestamps. Use these to:*",
+        '- *Reference specific moments ("yesterday morning you said...", "3 days ago you promised...")*',
+        '- *Notice patterns ("you always message late at night", "you disappeared for 2 days")*',
+        "- *Track time between check-ins*\n",
+    ];
+
+    let lastDate = "";
+
+    for (const m of messages) {
+        const msgDate = new Date(m.created_at);
+        const relativeTime = calculateRelativeTime(msgDate, now);
+        const formatted = formatDateTime(msgDate);
+
+        if (formatted.date !== lastDate) {
+            parts.push(`\n### ${formatted.date}`);
+            lastDate = formatted.date;
         }
 
-        // Add schedules section
-        if (schedules?.length) {
-            context += "\n\n## THEIR ACTIVE REMINDERS\n";
-            schedules.forEach((s) => {
-                const reminderTime = formatReminderTime(s.hour, s.minute);
-                context += `- **${s.title}** at ${reminderTime} on ${s.days.join(", ")}\n`;
-            });
-            context +=
-                "\n(You can reference these - ask if they did them, how it went, etc.)";
-        }
+        const role = m.role === "user" ? "**THEM**" : "**YOU**";
+        parts.push(`[${formatted.time} - ${relativeTime}] ${role}:\n${m.content}\n`);
+    }
 
-        // Add messages section
-        if (messages?.length) {
-            context += this._buildMessagesContext(messages, now);
-        }
+    return parts.join("\n");
+}
 
-        // Add time gap analysis
-        if (messages?.length) {
-            const lastMsg = messages[messages.length - 1];
-            const lastMsgTime = new Date(lastMsg.created_at);
-            const gap = calculateTimeGap(lastMsgTime, now);
+function buildTimeGapSection(messages, now) {
+    if (!messages?.length) return null;
 
-            context += `\n---\n## TIME SINCE LAST MESSAGE\n${gap.description}\n---`;
-        }
+    const lastMsg = messages[messages.length - 1];
+    const lastMsgTime = new Date(lastMsg.created_at);
+    const gap = calculateTimeGap(lastMsgTime, now);
 
-        return context;
-    },
-
-    /**
-     * Build messages portion of context
-     * @private
-     */
-    _buildMessagesContext(messages, now) {
-        let context = "\n\n## RECENT CONVERSATION HISTORY\n";
-        context += "*Messages are labeled with timestamps. Use these to:*\n";
-        context +=
-            '- *Reference specific moments ("yesterday morning you said...", "3 days ago you promised...")*\n';
-        context +=
-            '- *Notice patterns ("you always message late at night", "you disappeared for 2 days")*\n';
-        context += "- *Track time between check-ins*\n\n";
-
-        let lastDate = "";
-
-        messages.forEach((m) => {
-            const msgDate = new Date(m.created_at);
-            const relativeTime = calculateRelativeTime(msgDate, now);
-            const formatted = formatDateTime(msgDate);
-
-            // Add date header if it's a new day
-            if (formatted.date !== lastDate) {
-                context += `\n### 📅 ${formatted.date}\n`;
-                lastDate = formatted.date;
-            }
-
-            const role = m.role === "user" ? "**THEM**" : "**YOU**";
-            context += `[${formatted.time} - ${relativeTime}] ${role}:\n${m.content}\n\n`;
-        });
-
-        return context;
-    },
-};
+    return `\n---\n## TIME SINCE LAST MESSAGE\n${gap.description}\n---`;
+}
