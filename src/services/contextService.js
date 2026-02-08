@@ -98,6 +98,7 @@ function buildGoalsSection(goals, todayLogs) {
         lines.push("");
     }
 
+    lines.push("**IMPORTANT: These goals already exist. Do NOT create a new \`\`\`goal block for any topic already covered above. Reference existing goals by name instead. Only create a NEW goal if it's a genuinely different objective.**");
     lines.push("(Reference these goals naturally. Ask about progress. Remind them to log KPIs if not done today.)");
     return lines.join("\n");
 }

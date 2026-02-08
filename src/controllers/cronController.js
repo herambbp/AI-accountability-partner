@@ -1,8 +1,10 @@
 import { userRepository } from "../repositories/userRepository.js";
 import { messageRepository } from "../repositories/messageRepository.js";
 import { scheduleRepository } from "../repositories/scheduleRepository.js";
+import { dailyLogRepository } from "../repositories/dailyLogRepository.js";
 import { aiService } from "../services/aiService.js";
 import { contextService } from "../services/contextService.js";
+import { goalService } from "../services/goalService.js";
 import { notificationService } from "../services/notificationService.js";
 import { progressReviewService } from "../services/progressReviewService.js";
 import { sheetsService } from "../services/sheetsService.js";
@@ -51,7 +53,13 @@ export const testCheckin = asyncHandler(async (req, res) => {
         throw AppError.badRequest("No message history for user");
     }
 
-    const context = contextService.buildContext(history, [], profile.conversation_summary);
+    const today = new Date().toISOString().split("T")[0];
+    const [activeGoals, todayLogs] = await Promise.all([
+        goalService.getActiveGoalsWithProgress(userId),
+        dailyLogRepository.findByUserAndDate(userId, today),
+    ]);
+
+    const context = contextService.buildContext(history, [], profile.conversation_summary, activeGoals, todayLogs);
     const checkinMessage = await aiService.generateCheckinMessage(context);
     const pushResult = await notificationService.sendCheckin(profile.expo_push_token, checkinMessage);
 
@@ -151,7 +159,13 @@ async function processUserCheckin(user, now, inactivityMs) {
 
     console.log(`Generating check-in for user ${user.user_id}`);
 
-    const context = contextService.buildContext(history, [], profile.conversation_summary);
+    const today = new Date().toISOString().split("T")[0];
+    const [activeGoals, todayLogs] = await Promise.all([
+        goalService.getActiveGoalsWithProgress(user.user_id),
+        dailyLogRepository.findByUserAndDate(user.user_id, today),
+    ]);
+
+    const context = contextService.buildContext(history, [], profile.conversation_summary, activeGoals, todayLogs);
     const checkinMessage = await aiService.generateCheckinMessage(context);
 
     await notificationService.sendCheckin(token, checkinMessage);

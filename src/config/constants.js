@@ -33,5 +33,5 @@ export const TOKEN_LIMITS = {
     DEFAULT: 4096,
     MIN: 256,
     MAX: 16384,
-    CHECKIN: 150,
+    CHECKIN: 300,
 };

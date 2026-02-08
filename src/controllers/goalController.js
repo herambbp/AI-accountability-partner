@@ -115,8 +115,17 @@ export const setUserSheet = asyncHandler(async (req, res) => {
 
     let spreadsheetId = sheetId;
     if (!spreadsheetId) {
+        // Auto-create a new sheet
         spreadsheetId = await sheetsService.createSheetForUser(userId);
     } else {
+        // Linking an existing sheet — verify we can actually access it
+        const verified = await sheetsService.verifySheetAccess(spreadsheetId);
+        if (!verified) {
+            throw AppError.badRequest(
+                "Cannot access that Google Sheet. Make sure the sheet exists and is shared with the service account."
+            );
+        }
+
         await supabase
             .from("user_profiles")
             .update({ google_sheet_id: spreadsheetId })

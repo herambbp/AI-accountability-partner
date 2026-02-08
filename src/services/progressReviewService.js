@@ -71,11 +71,17 @@ export const progressReviewService = {
 };
 
 function buildReviewContext(goal, logs, type) {
+    const now = new Date();
     const lines = [
+        `## Time Context`,
+        `**Today:** ${now.toISOString().split("T")[0]} (${now.toLocaleDateString("en-IN", { weekday: "long" })})`,
+        `**Goal started:** ${goal.start_date} (${goal.progress.daysElapsed} days ago)`,
+        `**Goal ends:** ${goal.end_date} (${goal.progress.daysRemaining} days from now)`,
+        "",
         `## Goal: ${goal.objective}`,
         goal.context ? `**Why:** ${goal.context}` : "",
         `**Status:** ${goal.status} | **Progress:** ${goal.progress.percent}% | **Pace:** ${goal.progress.pace}`,
-        `**Days remaining:** ${goal.progress.daysRemaining} of ${goal.progress.totalDays}`,
+        `**Days elapsed:** ${goal.progress.daysElapsed} of ${goal.progress.totalDays} | **Days remaining:** ${goal.progress.daysRemaining}`,
         "",
         "### Key Results:",
     ];

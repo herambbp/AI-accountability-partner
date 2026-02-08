@@ -35,6 +35,19 @@ export const sheetsService = {
         return spreadsheetId;
     },
 
+    async verifySheetAccess(spreadsheetId) {
+        const sheets = getSheetsClient();
+        if (!sheets) return false;
+
+        try {
+            await sheets.spreadsheets.get({ spreadsheetId });
+            return true;
+        } catch (err) {
+            console.error(`Sheet access verification failed for ${spreadsheetId}:`, err.message);
+            return false;
+        }
+    },
+
     async initializeHeaders(spreadsheetId) {
         const sheets = getSheetsClient();
         if (!sheets) return;
