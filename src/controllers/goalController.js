@@ -1,8 +1,8 @@
+import { supabase } from "../config/index.js";
 import { goalService } from "../services/goalService.js";
 import { dailyLogRepository } from "../repositories/dailyLogRepository.js";
 import { progressReviewService } from "../services/progressReviewService.js";
 import { whatsappContactRepository } from "../repositories/whatsappContactRepository.js";
-import { userRepository } from "../repositories/userRepository.js";
 import { sheetsService } from "../services/sheetsService.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { AppError } from "../utils/AppError.js";
@@ -117,7 +117,6 @@ export const setUserSheet = asyncHandler(async (req, res) => {
     if (!spreadsheetId) {
         spreadsheetId = await sheetsService.createSheetForUser(userId);
     } else {
-        const { supabase } = await import("../config/index.js");
         await supabase
             .from("user_profiles")
             .update({ google_sheet_id: spreadsheetId })

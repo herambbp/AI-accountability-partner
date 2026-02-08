@@ -84,9 +84,10 @@ function addProgressToGoal(goal) {
     const start = new Date(goal.start_date);
     const end = new Date(goal.end_date);
 
-    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    const daysElapsed = Math.ceil((now - start) / (1000 * 60 * 60 * 24));
-    const daysRemaining = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+    const MS_PER_DAY = 86400000;
+    const totalDays = Math.ceil((end - start) / MS_PER_DAY);
+    const daysElapsed = Math.ceil((now - start) / MS_PER_DAY);
+    const daysRemaining = Math.max(0, Math.ceil((end - now) / MS_PER_DAY));
 
     // Calculate progress from key results
     let progressPercent = 0;

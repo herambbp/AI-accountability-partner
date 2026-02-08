@@ -1,6 +1,18 @@
 import { supabase } from "../config/index.js";
 
+/**
+ * Repository for daily log operations
+ */
 export const dailyLogRepository = {
+    /**
+     * Upsert a daily log (one per goal per day)
+     * @param {string} goalId - Goal ID
+     * @param {string} userId - User ID
+     * @param {string} logDate - Date string (YYYY-MM-DD)
+     * @param {Array} kpiValues - KPI values array
+     * @param {string|null} notes - Optional notes
+     * @returns {Promise<Object>} Upserted log
+     */
     async upsert(goalId, userId, logDate, kpiValues, notes = null) {
         const { data, error } = await supabase
             .from("daily_logs")
@@ -21,6 +33,12 @@ export const dailyLogRepository = {
         return data;
     },
 
+    /**
+     * Find logs for a goal with optional date range
+     * @param {string} goalId - Goal ID
+     * @param {Object} options - Date range options
+     * @returns {Promise<Array>}
+     */
     async findByGoalId(goalId, { startDate, endDate } = {}) {
         let query = supabase
             .from("daily_logs")
@@ -36,6 +54,12 @@ export const dailyLogRepository = {
         return data || [];
     },
 
+    /**
+     * Find all logs for a user on a specific date
+     * @param {string} userId - User ID
+     * @param {string} logDate - Date string (YYYY-MM-DD)
+     * @returns {Promise<Array>}
+     */
     async findByUserAndDate(userId, logDate) {
         const { data, error } = await supabase
             .from("daily_logs")
@@ -47,6 +71,11 @@ export const dailyLogRepository = {
         return data || [];
     },
 
+    /**
+     * Calculate current logging streak for a goal
+     * @param {string} goalId - Goal ID
+     * @returns {Promise<number>} Streak count in days
+     */
     async getStreak(goalId) {
         const { data, error } = await supabase
             .from("daily_logs")
@@ -68,12 +97,15 @@ export const dailyLogRepository = {
             if (logDate === expected) {
                 streak++;
                 checkDate.setDate(checkDate.getDate() - 1);
-            } else if (streak === 0 && logDate === new Date(checkDate.getTime() - 86400000).toISOString().split("T")[0]) {
+            } else if (streak === 0) {
                 // Allow starting from yesterday if no log today yet
-                checkDate.setDate(checkDate.getDate() - 1);
-                if (logDate === checkDate.toISOString().split("T")[0]) {
+                const yesterday = new Date(checkDate.getTime() - 86400000).toISOString().split("T")[0];
+                if (logDate === yesterday) {
+                    checkDate.setDate(checkDate.getDate() - 1);
                     streak++;
                     checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
                 }
             } else {
                 break;
@@ -83,6 +115,12 @@ export const dailyLogRepository = {
         return streak;
     },
 
+    /**
+     * Find recent logs for a user
+     * @param {string} userId - User ID
+     * @param {number} limit - Max logs to return
+     * @returns {Promise<Array>}
+     */
     async findRecentByUserId(userId, limit = 7) {
         const { data, error } = await supabase
             .from("daily_logs")

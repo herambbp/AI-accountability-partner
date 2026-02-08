@@ -1,6 +1,15 @@
 import { supabase } from "../config/index.js";
 
+/**
+ * Repository for WhatsApp contact operations
+ */
 export const whatsappContactRepository = {
+    /**
+     * Create a new WhatsApp contact
+     * @param {string} userId - User ID
+     * @param {Object} contactData - Contact data
+     * @returns {Promise<Object>} Created contact
+     */
     async create(userId, contactData) {
         const { data, error } = await supabase
             .from("whatsapp_contacts")
@@ -17,6 +26,11 @@ export const whatsappContactRepository = {
         return data;
     },
 
+    /**
+     * Find all contacts for a user
+     * @param {string} userId - User ID
+     * @returns {Promise<Array>}
+     */
     async findByUserId(userId) {
         const { data, error } = await supabase
             .from("whatsapp_contacts")
@@ -28,6 +42,11 @@ export const whatsappContactRepository = {
         return data || [];
     },
 
+    /**
+     * Find active contacts for a user
+     * @param {string} userId - User ID
+     * @returns {Promise<Array>}
+     */
     async findActiveByUserId(userId) {
         const { data, error } = await supabase
             .from("whatsapp_contacts")
@@ -39,6 +58,10 @@ export const whatsappContactRepository = {
         return data || [];
     },
 
+    /**
+     * Delete a contact by ID
+     * @param {string} contactId - Contact ID
+     */
     async deleteById(contactId) {
         const { error } = await supabase
             .from("whatsapp_contacts")
@@ -48,6 +71,11 @@ export const whatsappContactRepository = {
         if (error) throw error;
     },
 
+    /**
+     * Toggle active status of a contact
+     * @param {string} contactId - Contact ID
+     * @returns {Promise<Object>} Updated contact
+     */
     async toggleActive(contactId) {
         const { data: current } = await supabase
             .from("whatsapp_contacts")
@@ -66,6 +94,10 @@ export const whatsappContactRepository = {
         return data;
     },
 
+    /**
+     * Find all unique user IDs with active contacts
+     * @returns {Promise<string[]>}
+     */
     async findAllUsersWithActiveContacts() {
         const { data, error } = await supabase
             .from("whatsapp_contacts")
@@ -73,7 +105,6 @@ export const whatsappContactRepository = {
             .eq("is_active", true);
 
         if (error) throw error;
-        const unique = [...new Set((data || []).map((c) => c.user_id))];
-        return unique;
+        return [...new Set((data || []).map((c) => c.user_id))];
     },
 };

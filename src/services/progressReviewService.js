@@ -1,5 +1,6 @@
 import { aiService } from "./aiService.js";
 import { goalService } from "./goalService.js";
+import { goalRepository } from "../repositories/goalRepository.js";
 import { dailyLogRepository } from "../repositories/dailyLogRepository.js";
 
 export const progressReviewService = {
@@ -36,7 +37,7 @@ export const progressReviewService = {
         const dayOfWeek = now.getDay(); // 0 = Sunday
         const dayOfMonth = now.getDate();
 
-        const userIds = await (await import("../repositories/goalRepository.js")).goalRepository.findAllUsersWithActiveGoals();
+        const userIds = await goalRepository.findAllUsersWithActiveGoals();
         const results = { weekly: [], monthly: [] };
 
         for (const userId of userIds) {
@@ -109,5 +110,5 @@ function buildReviewContext(goal, logs, type) {
         lines.push("", `**Current streak:** ${goal.streak} days`);
     }
 
-    return lines.filter((l) => l !== undefined).join("\n");
+    return lines.join("\n");
 }

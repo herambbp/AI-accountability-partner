@@ -1,82 +1,61 @@
+const BLOCK_TYPES = ["schedule", "goal", "kpi_log"];
+
 /**
- * Parse schedule JSON from AI response
+ * Parse a fenced code block of the given type from AI response text
  * @param {string} text - AI response text
- * @returns {Object|null} Parsed schedule object or null if not found
+ * @param {string} blockType - Block type to parse (schedule, goal, kpi_log)
+ * @returns {Object|null} Parsed JSON object or null if not found
  */
-export function parseScheduleFromResponse(text) {
-    const match = text.match(/```schedule\n([\s\S]*?)\n```/);
+function parseBlock(text, blockType) {
+    const match = text.match(new RegExp(`\`\`\`${blockType}\\n([\\s\\S]*?)\\n\`\`\``));
     if (!match) return null;
 
     try {
         return JSON.parse(match[1]);
     } catch (error) {
-        console.error("Failed to parse schedule:", error);
+        console.error(`Failed to parse ${blockType}:`, error);
         return null;
     }
 }
 
 /**
- * Remove schedule block from message for storage
- * @param {string} text - Message containing schedule block
- * @returns {string} Message with schedule block removed
+ * Parse schedule JSON from AI response
+ * @param {string} text - AI response text
+ * @returns {Object|null} Parsed schedule object or null
  */
-export function cleanScheduleFromMessage(text) {
-    return text.replace(/```schedule\n[\s\S]*?\n```/, "").trim();
+export function parseScheduleFromResponse(text) {
+    return parseBlock(text, "schedule");
 }
 
 /**
  * Parse goal JSON from AI response
+ * @param {string} text - AI response text
+ * @returns {Object|null} Parsed goal object or null
  */
 export function parseGoalFromResponse(text) {
-    const match = text.match(/```goal\n([\s\S]*?)\n```/);
-    if (!match) return null;
-
-    try {
-        return JSON.parse(match[1]);
-    } catch (error) {
-        console.error("Failed to parse goal:", error);
-        return null;
-    }
-}
-
-/**
- * Remove goal block from message for storage
- */
-export function cleanGoalFromMessage(text) {
-    return text.replace(/```goal\n[\s\S]*?\n```/, "").trim();
+    return parseBlock(text, "goal");
 }
 
 /**
  * Parse KPI log JSON from AI response
+ * @param {string} text - AI response text
+ * @returns {Object|null} Parsed KPI log object or null
  */
 export function parseKpiLogFromResponse(text) {
-    const match = text.match(/```kpi_log\n([\s\S]*?)\n```/);
-    if (!match) return null;
-
-    try {
-        return JSON.parse(match[1]);
-    } catch (error) {
-        console.error("Failed to parse kpi_log:", error);
-        return null;
-    }
-}
-
-/**
- * Remove KPI log block from message for storage
- */
-export function cleanKpiLogFromMessage(text) {
-    return text.replace(/```kpi_log\n[\s\S]*?\n```/, "").trim();
+    return parseBlock(text, "kpi_log");
 }
 
 /**
  * Clean all structured blocks (schedule, goal, kpi_log) from message
+ * @param {string} text - Message containing structured blocks
+ * @returns {string} Message with all blocks removed
  */
 export function cleanAllBlocksFromMessage(text) {
-    return text
-        .replace(/```schedule\n[\s\S]*?\n```/g, "")
-        .replace(/```goal\n[\s\S]*?\n```/g, "")
-        .replace(/```kpi_log\n[\s\S]*?\n```/g, "")
-        .trim();
+    let cleaned = text;
+    for (const type of BLOCK_TYPES) {
+        cleaned = cleaned.replace(new RegExp(`\`\`\`${type}\\n[\\s\\S]*?\\n\`\`\``, "g"), "");
+    }
+    return cleaned.trim();
 }
 
 /**
