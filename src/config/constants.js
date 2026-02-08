@@ -5,7 +5,7 @@ export const MODELS = {
 };
 
 // Re-export prompts from dedicated file
-export { SYSTEM_PROMPT, SUMMARY_PROMPT, CHECKIN_PROMPT } from "./prompts.js";
+export { SYSTEM_PROMPT, SUMMARY_PROMPT, CHECKIN_PROMPT, WEEKLY_REVIEW_PROMPT, MONTHLY_REVIEW_PROMPT } from "./prompts.js";
 
 // Time constants
 const MS_PER_HOUR = 60 * 60 * 1000;

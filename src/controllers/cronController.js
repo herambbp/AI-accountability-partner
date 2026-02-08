@@ -4,6 +4,9 @@ import { scheduleRepository } from "../repositories/scheduleRepository.js";
 import { aiService } from "../services/aiService.js";
 import { contextService } from "../services/contextService.js";
 import { notificationService } from "../services/notificationService.js";
+import { progressReviewService } from "../services/progressReviewService.js";
+import { sheetsService } from "../services/sheetsService.js";
+import { whatsappService } from "../services/whatsappService.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import { AppError } from "../utils/AppError.js";
 import { getISTTime, getDayName } from "../utils/dateUtils.js";
@@ -167,3 +170,49 @@ function wasRecentlyCheckedIn(lastCheckinAt, now, inactivityMs) {
     const threshold = new Date(now.getTime() - inactivityMs);
     return lastCheckin > threshold;
 }
+
+/**
+ * POST /api/cron/reviews
+ * Automated weekly (Sunday) + monthly (1st) AI reviews
+ */
+export const runReviews = asyncHandler(async (req, res) => {
+    console.log("Running automated reviews cron...");
+
+    const results = await progressReviewService.runAutomatedReviews();
+
+    // Send weekly reviews via WhatsApp
+    for (const item of results.weekly) {
+        try {
+            await whatsappService.sendWeeklyReview(item.userId, item.review);
+            await messageRepository.create(item.userId, "assistant", `**Weekly Review (${item.goalId}):**\n\n${item.review}`);
+        } catch (err) {
+            console.error(`Failed to send weekly review for ${item.userId}:`, err.message);
+        }
+    }
+
+    res.json({
+        success: true,
+        weeklyReviews: results.weekly.length,
+        monthlyReviews: results.monthly.length,
+    });
+});
+
+/**
+ * POST /api/cron/sheets-sync
+ * Daily Google Sheets sync for all users
+ */
+export const runSheetsSync = asyncHandler(async (req, res) => {
+    console.log("Running Google Sheets sync cron...");
+    const result = await sheetsService.syncAllUsers();
+    res.json({ success: true, ...result });
+});
+
+/**
+ * POST /api/cron/whatsapp-daily
+ * Daily WhatsApp progress update to all users with active contacts
+ */
+export const runWhatsAppDaily = asyncHandler(async (req, res) => {
+    console.log("Running WhatsApp daily progress cron...");
+    const results = await whatsappService.sendAllDailyProgress();
+    res.json({ success: true, results });
+});

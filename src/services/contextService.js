@@ -11,17 +11,20 @@ import {
  */
 export const contextService = {
     /**
-     * Build full context from messages, schedules, and summary
+     * Build full context from messages, schedules, summary, and goals
      * @param {Array} messages - Recent messages
      * @param {Array} schedules - Active schedules
      * @param {string|null} summary - Conversation summary
+     * @param {Array|null} goals - Active goals with progress
+     * @param {Array|null} todayLogs - Today's daily logs
      * @returns {string} Formatted context string
      */
-    buildContext(messages, schedules, summary = null) {
+    buildContext(messages, schedules, summary = null, goals = null, todayLogs = null) {
         const now = new Date();
         const sections = [
             buildTimeContext(now),
             buildSummarySection(summary),
+            buildGoalsSection(goals, todayLogs),
             buildSchedulesSection(schedules),
             buildMessagesSection(messages, now),
             buildTimeGapSection(messages, now),
@@ -54,6 +57,49 @@ function buildSummarySection(summary) {
 ${summary}
 
 ---`;
+}
+
+function buildGoalsSection(goals, todayLogs) {
+    if (!goals?.length) return null;
+
+    const lines = ["\n\n## GOALS CONTEXT", "*Active goals with progress and KPI IDs (use these IDs when logging KPIs):*\n"];
+
+    for (const goal of goals) {
+        const p = goal.progress;
+        lines.push(`### Goal: ${goal.objective} [ID: ${goal.id}]`);
+        lines.push(`**Status:** ${goal.status} | **Progress:** ${p.percent}% | **Pace:** ${p.pace} | **Days left:** ${p.daysRemaining}/${p.totalDays}`);
+
+        if (goal.context) lines.push(`**Why:** ${goal.context}`);
+
+        if (goal.key_results?.length) {
+            lines.push("**Key Results:**");
+            for (const kr of goal.key_results) {
+                const pct = kr.target_value > 0 ? Math.round((kr.current_value / kr.target_value) * 100) : 0;
+                lines.push(`- ${kr.description}: ${kr.current_value}/${kr.target_value} ${kr.unit} (${pct}%) [KR ID: ${kr.id}]`);
+            }
+        }
+
+        if (goal.kpis?.length) {
+            lines.push("**Daily KPIs:**");
+            for (const kpi of goal.kpis) {
+                const target = kpi.daily_target ? ` — target: ${JSON.stringify(kpi.daily_target)}` : "";
+                lines.push(`- ${kpi.name} (${kpi.type})${target} [KPI ID: ${kpi.id}]`);
+            }
+        }
+
+        // Check today's log
+        const todayLog = todayLogs?.find((l) => l.goal_id === goal.id);
+        if (todayLog) {
+            lines.push(`**Today's log:** ✅ Logged — ${JSON.stringify(todayLog.kpi_values)}`);
+        } else {
+            lines.push("**Today's log:** ❌ Not yet logged");
+        }
+
+        lines.push("");
+    }
+
+    lines.push("(Reference these goals naturally. Ask about progress. Remind them to log KPIs if not done today.)");
+    return lines.join("\n");
 }
 
 function buildSchedulesSection(schedules) {

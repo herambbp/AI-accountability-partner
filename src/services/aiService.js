@@ -4,6 +4,8 @@ import {
     SYSTEM_PROMPT,
     SUMMARY_PROMPT,
     CHECKIN_PROMPT,
+    WEEKLY_REVIEW_PROMPT,
+    MONTHLY_REVIEW_PROMPT,
     TOKEN_LIMITS,
 } from "../config/constants.js";
 
@@ -80,6 +82,28 @@ export const aiService = {
             max_tokens: TOKEN_LIMITS.CHECKIN,
             system: SYSTEM_PROMPT + context,
             messages: [{ role: "user", content: CHECKIN_PROMPT }],
+        });
+
+        return response.content[0].text;
+    },
+
+    async generateWeeklyReview(goalContext) {
+        const response = await anthropic.messages.create({
+            model: MODELS.haiku,
+            max_tokens: TOKEN_LIMITS.DEFAULT,
+            system: WEEKLY_REVIEW_PROMPT,
+            messages: [{ role: "user", content: goalContext }],
+        });
+
+        return response.content[0].text;
+    },
+
+    async generateMonthlyReview(goalContext) {
+        const response = await anthropic.messages.create({
+            model: MODELS.haiku,
+            max_tokens: TOKEN_LIMITS.DEFAULT,
+            system: MONTHLY_REVIEW_PROMPT,
+            messages: [{ role: "user", content: goalContext }],
         });
 
         return response.content[0].text;
