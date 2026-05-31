@@ -35,14 +35,16 @@ export const aiService = {
 
         console.log(`AI Chat: model=${model} (${selectedModel}), tokens=${tokens}`);
 
-        const response = await anthropic.messages.create({
+        const response = await anthropic.chat.completions.create({
             model: selectedModel,
             max_tokens: tokens,
-            system: SYSTEM_PROMPT + context,
-            messages: [{ role: "user", content: message }],
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT + context },
+                { role: "user", content: message },
+            ],
         });
 
-        return response.content[0].text;
+        return response.choices[0].message.content;
     },
 
     /**
@@ -57,14 +59,16 @@ export const aiService = {
         const prompt = buildSummaryPrompt(messages, existingSummary);
 
         try {
-            const response = await anthropic.messages.create({
+            const response = await anthropic.chat.completions.create({
                 model: MODELS.haiku,
                 max_tokens: 8000,
-                system: SUMMARY_PROMPT,
-                messages: [{ role: "user", content: prompt }],
+                messages: [
+                    { role: "system", content: SUMMARY_PROMPT },
+                    { role: "user", content: prompt },
+                ],
             });
 
-            return response.content[0].text;
+            return response.choices[0].message.content;
         } catch (error) {
             console.error("Summary generation error:", error);
             return existingSummary;
@@ -77,36 +81,42 @@ export const aiService = {
      * @returns {Promise<string>} Check-in message
      */
     async generateCheckinMessage(context) {
-        const response = await anthropic.messages.create({
+        const response = await anthropic.chat.completions.create({
             model: MODELS.haiku,
             max_tokens: TOKEN_LIMITS.CHECKIN,
-            system: SYSTEM_PROMPT + context,
-            messages: [{ role: "user", content: CHECKIN_PROMPT }],
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT + context },
+                { role: "user", content: CHECKIN_PROMPT },
+            ],
         });
 
-        return response.content[0].text;
+        return response.choices[0].message.content;
     },
 
     async generateWeeklyReview(goalContext) {
-        const response = await anthropic.messages.create({
+        const response = await anthropic.chat.completions.create({
             model: MODELS.haiku,
             max_tokens: TOKEN_LIMITS.DEFAULT,
-            system: WEEKLY_REVIEW_PROMPT,
-            messages: [{ role: "user", content: goalContext }],
+            messages: [
+                { role: "system", content: WEEKLY_REVIEW_PROMPT },
+                { role: "user", content: goalContext },
+            ],
         });
 
-        return response.content[0].text;
+        return response.choices[0].message.content;
     },
 
     async generateMonthlyReview(goalContext) {
-        const response = await anthropic.messages.create({
+        const response = await anthropic.chat.completions.create({
             model: MODELS.haiku,
             max_tokens: TOKEN_LIMITS.DEFAULT,
-            system: MONTHLY_REVIEW_PROMPT,
-            messages: [{ role: "user", content: goalContext }],
+            messages: [
+                { role: "system", content: MONTHLY_REVIEW_PROMPT },
+                { role: "user", content: goalContext },
+            ],
         });
 
-        return response.content[0].text;
+        return response.choices[0].message.content;
     },
 };
 

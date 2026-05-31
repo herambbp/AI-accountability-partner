@@ -1,11 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { Expo } from "expo-server-sdk";
 import "dotenv/config";
 
 // Required environment variables
 const REQUIRED_ENV_VARS = [
-    "ANTHROPIC_API_KEY",
+    "OPENROUTER_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
 ];
@@ -23,8 +23,13 @@ function validateEnvironment() {
 validateEnvironment();
 
 // Initialize clients
-export const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+export const anthropic = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+        "HTTP-Referer": "https://github.com/AI-accountability-partner",
+        "X-Title": "AI Accountability Coach",
+    },
 });
 
 export const supabase = createClient(
