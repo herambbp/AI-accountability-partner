@@ -1,7 +1,7 @@
 // AI Model configuration
 export const MODELS = {
-    haiku: "deepseek/deepseek-v4-pro",
-    sonnet: "deepseek/deepseek-v4-pro",
+    haiku: "deepseek/deepseek-v4-flash",
+    sonnet: "deepseek/deepseek-v4-flash",
 };
 
 // Re-export prompts from dedicated file
